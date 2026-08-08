@@ -1,0 +1,31 @@
+# ====== MVP 필수 의존성 ======
+
+# FastAPI & Web
+fastapi==0.104.1
+uvicorn==0.24.0
+python-multipart==0.0.6
+
+# Database (SQLite 기반)
+sqlalchemy==2.0.23
+pydantic-settings==2.1.0
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+pydantic==2.5.0
+email-validator==2.1.0
+
+# Utilities
+python-dotenv==1.0.0
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2
+
+# ====== 이후 추가할 의존성 (Week 2-4) ======
+# 파일 처리: pdf2image, pytesseract, Pillow, python-docx
+# Google API: google-auth-oauthlib, google-auth-httplib2, google-api-python-client
+# AI/LLM: openai, azure-identity
+# 배경 작업: APScheduler, aiofiles
+# 코드 품질: black, pylint, mypy
