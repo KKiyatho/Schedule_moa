@@ -20,7 +20,7 @@ from app.crud import document as document_crud
 from app.crud.user import get_user_by_id
 from app.models.document import DocumentType, DocumentStatus
 
-router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
+router = APIRouter(prefix="/documents", tags=["documents"])
 
 # Configuration
 ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "gif", "docx"}

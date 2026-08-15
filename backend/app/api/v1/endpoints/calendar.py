@@ -17,7 +17,7 @@ from app.schemas import (
 from app.crud import calendar as calendar_crud
 from app.crud.user import get_user_by_id
 
-router = APIRouter(prefix="/api/v1/calendars", tags=["calendars"])
+router = APIRouter(prefix="/calendars", tags=["calendars"])
 
 
 @router.post("", response_model=CalendarResponse)

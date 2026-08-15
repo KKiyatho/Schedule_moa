@@ -43,9 +43,7 @@ class CalendarResponse(CalendarBase):
 
 class CalendarWithItems(CalendarResponse):
     """Schema for calendar with schedule items"""
-    from app.schemas.schedule_item import ScheduleItemResponse
-    
-    schedule_items: List[ScheduleItemResponse] = []
+    schedule_items: List = []
 
     class Config:
         from_attributes = True

@@ -43,9 +43,7 @@ class UserResponse(UserBase):
 
 class UserWithCalendars(UserResponse):
     """Schema for user with calendars"""
-    from app.schemas.calendar import CalendarResponse
-    
-    calendars: List[CalendarResponse] = []
+    calendars: List = []
 
     class Config:
         from_attributes = True

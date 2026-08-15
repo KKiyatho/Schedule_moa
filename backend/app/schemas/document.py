@@ -4,8 +4,11 @@ Document schemas - Pydantic models for Document
 
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from app.models.document import DocumentStatus, DocumentType
+
+if TYPE_CHECKING:
+    from app.schemas.schedule_item import ScheduleItemResponse
 
 
 class DocumentBase(BaseModel):
@@ -43,9 +46,7 @@ class DocumentResponse(DocumentBase):
 
 class DocumentWithItems(DocumentResponse):
     """Schema for document with extracted items"""
-    from app.schemas.schedule_item import ScheduleItemResponse
-    
-    schedule_items: List[ScheduleItemResponse] = []
+    schedule_items: List = []
 
     class Config:
         from_attributes = True

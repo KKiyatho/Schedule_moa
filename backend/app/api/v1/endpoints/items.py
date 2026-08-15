@@ -17,7 +17,7 @@ from app.schemas import (
 from app.crud import item as item_crud
 from app.crud.user import get_user_by_id
 
-router = APIRouter(prefix="/api/v1/items", tags=["items"])
+router = APIRouter(prefix="/items", tags=["items"])
 
 
 @router.post("", response_model=ScheduleItemResponse)

@@ -69,11 +69,17 @@ class ApiService {
           'password': password,
         },
       );
-      if (response.statusCode == 200) {
+      print('Register response: ${response.statusCode} - ${response.data}');
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return response.data;
+      } else {
+        print('Register failed with status ${response.statusCode}');
       }
     } catch (e) {
-      print('Register failed: $e');
+      print('Register error: $e');
+      if (e is DioException) {
+        print('DioException: ${e.response?.data}');
+      }
     }
     return null;
   }
@@ -91,11 +97,17 @@ class ApiService {
           'password': password,
         },
       );
-      if (response.statusCode == 200) {
+      print('Login response: ${response.statusCode} - ${response.data}');
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return response.data;
+      } else {
+        print('Login failed with status ${response.statusCode}');
       }
     } catch (e) {
-      print('Login failed: $e');
+      print('Login error: $e');
+      if (e is DioException) {
+        print('DioException: ${e.response?.data}');
+      }
     }
     return null;
   }

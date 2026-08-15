@@ -46,11 +46,7 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
 
     # CORS
-    CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:5000",
-        "http://localhost:59102",
-    ]
+    CORS_ORIGINS: List[str] = ["*"]
 
     class Config:
         env_file = ".env"

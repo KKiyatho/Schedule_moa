@@ -15,7 +15,7 @@ from app.db.session import get_db
 from app.schemas import UserCreate, UserResponse, TokenResponse, UserLogin
 from app.crud.user import get_user_by_email, create_user, get_user_by_id
 
-router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=TokenResponse)

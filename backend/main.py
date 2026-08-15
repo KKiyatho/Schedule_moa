@@ -39,13 +39,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Add CORS middleware
+# Add CORS middleware - 반드시 라우터 include 전에 추가
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=["*"],  # 모든 오리진 허용 (개발 환경)
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],  # 모든 메서드 명시
+    allow_headers=["*"],  # 모든 헤더 허용
+    expose_headers=["*"],
+    max_age=3600,  # preflight 캐시 1시간
 )
 
 # Create uploads directory
