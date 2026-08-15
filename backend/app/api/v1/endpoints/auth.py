@@ -5,10 +5,15 @@ Authentication endpoints
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import (
+    create_access_token,
+    hash_password,
+    verify_password,
+    get_current_user
+)
 from app.db.session import get_db
-from app.schemas import UserCreate, UserResponse, TokenResponse
-from app.crud.user import get_user_by_email, create_user
+from app.schemas import UserCreate, UserResponse, TokenResponse, UserLogin
+from app.crud.user import get_user_by_email, create_user, get_user_by_id
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -16,7 +21,7 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 @router.post("/register", response_model=TokenResponse)
 async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     """
-    Register a new user
+    Register a new user with email and password
     """
     # Check if user already exists
     existing_user = get_user_by_email(db, user_data.email)
@@ -39,16 +44,21 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(email: str, password: str, db: Session = Depends(get_db)):
+async def login(login_data: UserLogin, db: Session = Depends(get_db)):
     """
     Login with email and password
-    Note: For MVP, we'll use simple email-based login
     """
-    user = get_user_by_email(db, email)
-    if not user:
+    user = get_user_by_email(db, login_data.email)
+    if not user or not verify_password(login_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials"
+            detail="Invalid email or password"
+        )
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is inactive"
         )
     
     # Create access token
@@ -60,31 +70,15 @@ async def login(email: str, password: str, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/google-login", response_model=TokenResponse)
-async def google_login(code: str, db: Session = Depends(get_db)):
-    """
-    Login with Google OAuth code
-    TODO: Implement Google OAuth flow
-    """
-    # This will be implemented when we set up Google OAuth
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Google login coming soon"
-    )
-
-
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
-    current_user: dict = Depends(lambda: {"user_id": "test"}),
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Get current user information
+    Get current user information from JWT token
     """
-    from uuid import UUID
-    from app.crud.user import get_user_by_id
-    
-    user_id = UUID(current_user["user_id"]) if isinstance(current_user["user_id"], str) else current_user["user_id"]
+    user_id = int(current_user["user_id"])
     user = get_user_by_id(db, user_id)
     
     if not user:
@@ -94,3 +88,4 @@ async def get_current_user_info(
         )
     
     return UserResponse.model_validate(user)
+

@@ -1,151 +1,168 @@
 """
-Extracted items (schedule, deadline, todo) endpoints
+Schedule Items endpoints
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from uuid import UUID
-from datetime import date, time
-from typing import Optional
+from typing import List
 
+from app.core.security import get_current_user
 from app.db.session import get_db
-from app.schemas import ExtractedItemResponse, ExtractedItemCreate, ExtractedItemUpdate
-from app.crud.item import (
-    get_item_by_id,
-    get_user_items,
-    create_item,
-    update_item,
-    mark_item_completed,
-    delete_item
+from app.schemas import (
+    ScheduleItemCreate,
+    ScheduleItemUpdate,
+    ScheduleItemResponse,
+    ScheduleItemListResponse
 )
+from app.crud import item as item_crud
+from app.crud.user import get_user_by_id
 
 router = APIRouter(prefix="/api/v1/items", tags=["items"])
 
 
-@router.get("/", response_model=list[ExtractedItemResponse])
-async def list_items(
-    user_id: str = "test",  # TODO: Get from current user
-    item_type: Optional[str] = None,
-    status: Optional[str] = None,
+@router.post("", response_model=ScheduleItemResponse)
+async def create_item(
+    item_data: ScheduleItemCreate,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Create a new schedule item
+    """
+    user_id = int(current_user["user_id"])
+    
+    # Verify user exists
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    # Verify calendar belongs to user
+    from app.crud import calendar as calendar_crud
+    calendar = calendar_crud.get_calendar_by_id(db, item_data.calendar_id)
+    if not calendar or calendar.owner_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Calendar not found or not owned by user")
+    
+    db_item = item_crud.create_schedule_item(db, item_data.calendar_id, user_id, item_data)
+    return ScheduleItemResponse.model_validate(db_item)
+
+
+@router.get("/{item_id}", response_model=ScheduleItemResponse)
+async def get_item(
+    item_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get a schedule item by ID
+    """
+    user_id = int(current_user["user_id"])
+    item = item_crud.get_schedule_item_by_id(db, item_id)
+    
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+    
+    if item.creator_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view this item")
+    
+    return ScheduleItemResponse.model_validate(item)
+
+
+@router.get("/calendar/{calendar_id}", response_model=ScheduleItemListResponse)
+async def get_calendar_items(
+    calendar_id: int,
     skip: int = 0,
     limit: int = 100,
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Get all items for current user
-    Optionally filter by type (schedule, deadline, todo) or status
+    Get all schedule items for a calendar
     """
-    items = get_user_items(db, UUID(user_id), status=status, skip=skip, limit=limit)
+    user_id = int(current_user["user_id"])
     
-    if item_type:
-        items = [item for item in items if item.item_type == item_type]
+    # Verify calendar belongs to user
+    from app.crud import calendar as calendar_crud
+    calendar = calendar_crud.get_calendar_by_id(db, calendar_id)
+    if not calendar or calendar.owner_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Calendar not found or not owned by user")
     
-    return [ExtractedItemResponse.model_validate(item) for item in items]
-
-
-@router.get("/{item_id}", response_model=ExtractedItemResponse)
-async def get_item(
-    item_id: str,
-    db: Session = Depends(get_db)
-):
-    """
-    Get a specific item by ID
-    """
-    item = get_item_by_id(db, UUID(item_id))
+    items, total = item_crud.get_schedule_items_by_calendar(db, calendar_id, skip, limit)
     
-    if not item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Item not found"
-        )
-    
-    return ExtractedItemResponse.model_validate(item)
-
-
-@router.post("/", response_model=ExtractedItemResponse)
-async def create_extracted_item(
-    item_data: ExtractedItemCreate,
-    user_id: str = "test",  # TODO: Get from current user
-    db: Session = Depends(get_db)
-):
-    """
-    Create a new extracted item
-    """
-    db_item = create_item(
-        db=db,
-        user_id=UUID(user_id),
-        document_id=item_data.document_id,
-        title=item_data.title,
-        item_type=item_data.item_type,
-        description=item_data.description,
-        due_date=item_data.due_date,
-        due_time=item_data.due_time,
-        location=item_data.location,
-        priority=item_data.priority
+    return ScheduleItemListResponse(
+        total=total,
+        items=[ScheduleItemResponse.model_validate(item) for item in items],
+        page=skip // limit + 1,
+        page_size=limit
     )
-    
-    return ExtractedItemResponse.model_validate(db_item)
 
 
-@router.put("/{item_id}", response_model=ExtractedItemResponse)
-async def update_extracted_item(
-    item_id: str,
-    item_update: ExtractedItemUpdate,
+@router.put("/{item_id}", response_model=ScheduleItemResponse)
+async def update_item(
+    item_id: int,
+    item_update: ScheduleItemUpdate,
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Update an extracted item
+    Update a schedule item
     """
-    item = get_item_by_id(db, UUID(item_id))
+    user_id = int(current_user["user_id"])
     
+    # Verify item exists and belongs to user
+    item = item_crud.get_schedule_item_by_id(db, item_id)
     if not item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Item not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
     
-    updated_item = update_item(db, UUID(item_id), item_update)
+    if item.creator_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this item")
     
-    return ExtractedItemResponse.model_validate(updated_item)
+    updated_item = item_crud.update_schedule_item(db, item_id, item_update)
+    return ScheduleItemResponse.model_validate(updated_item)
 
 
-@router.post("/{item_id}/complete")
-async def complete_item(
-    item_id: str,
+@router.post("/{item_id}/complete", response_model=ScheduleItemResponse)
+async def mark_complete(
+    item_id: int,
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Mark an item as completed
+    Mark item as completed
     """
-    item = get_item_by_id(db, UUID(item_id))
+    user_id = int(current_user["user_id"])
     
+    # Verify item exists and belongs to user
+    item = item_crud.get_schedule_item_by_id(db, item_id)
     if not item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Item not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
     
-    completed_item = mark_item_completed(db, UUID(item_id))
+    if item.creator_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to modify this item")
     
-    return ExtractedItemResponse.model_validate(completed_item)
+    completed_item = item_crud.mark_item_complete(db, item_id)
+    return ScheduleItemResponse.model_validate(completed_item)
 
 
 @router.delete("/{item_id}")
-async def delete_extracted_item(
-    item_id: str,
+async def delete_item(
+    item_id: int,
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Delete an item
+    Delete a schedule item
     """
-    item = get_item_by_id(db, UUID(item_id))
+    user_id = int(current_user["user_id"])
     
+    # Verify item exists and belongs to user
+    item = item_crud.get_schedule_item_by_id(db, item_id)
     if not item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Item not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
     
-    delete_item(db, UUID(item_id))
+    if item.creator_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this item")
+    
+    item_crud.delete_schedule_item(db, item_id)
+    return {"message": "Item deleted successfully"}
     
     return {"message": "Item deleted successfully"}
